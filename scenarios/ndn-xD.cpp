@@ -125,6 +125,17 @@ struct ControllerApp : ParametrizedApp
         }
         Simulator::Schedule(Seconds(1.0), &ControllerApp::SendInterests, this);
     }
+    void OnData(std::shared_ptr<const ndn::Data> p_data) override
+    {
+        ParametrizedApp::OnData(p_data);
+        std::cout << "Received in controller: ";
+        const auto& l_content = p_data->getContent();
+        for(auto it = l_content.value_begin(); it != l_content.value_end(); ++it)
+        {
+            std::cout << *it << " ";
+        }
+        std::cout << std::endl;
+    }
 };
 
 struct LightSensorApp : ParametrizedApp //jakoś się uogulni sensor
@@ -139,10 +150,28 @@ struct LightSensorApp : ParametrizedApp //jakoś się uogulni sensor
                 .AddConstructor<LightSensorApp>();
         return tid;
     }
-    void OnInterest(std::shared_ptr<const ndn::Interest> p_interest) override
+    void OnInterest(std::shared_ptr<const ndn::Interest> interest) override
     {
-        ndn::App::OnInterest(p_interest);
-        std::cout << "got interest in light sensor xD" << std::endl;
+        using namespace ndn;
+        App::OnInterest(interest); // tracing inside
+
+        auto data = make_shared<Data>();
+        data->setName(interest->getName());
+        data->setFreshnessPeriod(::ndn::time::milliseconds(1000));
+
+        std::vector<uint8_t> dummy_data{'a', 'b', 'c', 'd'};
+        data->setContent(make_shared< ::ndn::Buffer>(dummy_data.begin(), dummy_data.end()));
+
+        Signature signature;
+        SignatureInfo signatureInfo(static_cast< ::ndn::tlv::SignatureTypeValue>(255));
+
+        signature.setInfo(signatureInfo);
+
+        data->setSignature(signature);
+        data->wireEncode();
+
+        m_transmittedDatas(data, this, m_face);
+        m_appLink->onReceiveData(*data);
     }
 };
 
