@@ -27,6 +27,9 @@
 #include "ns3/ndnSIM/apps/ndn-consumer.hpp"
 #include "ns3/ndnSIM/apps/ndn-consumer-window.hpp"
 #include "ns3/ndnSIM/apps/ndn-consumer-cbr.hpp"
+#include "ns3/wifi-module.h"
+#include "ns3/mobility-module.h"
+#include "ns3/internet-module.h"
 #include "ns3/application.h"
 #include <iostream>
 //#include "ns3/ndn-consumer.hpp"
@@ -154,26 +157,64 @@ main(int argc, char* argv[])
   Config::SetDefault("ns3::PointToPointChannel::Delay", StringValue("10ms"));
   Config::SetDefault("ns3::QueueBase::MaxPackets", UintegerValue(20));
 
+  Config::SetDefault("ns3::WifiRemoteStationManager::FragmentationThreshold", StringValue("2200"));
+  Config::SetDefault("ns3::WifiRemoteStationManager::RtsCtsThreshold", StringValue("2200"));
+  Config::SetDefault("ns3::WifiRemoteStationManager::NonUnicastMode",
+                     StringValue("OfdmRate24Mbps"));
+
   // Read optional command-line parameters (e.g., enable visualizer with ./waf --run=<> --visualize
   CommandLine cmd;
   cmd.Parse(argc, argv);
 
   // Creating nodes
+  //
+  WifiHelper wifi;
+  wifi.SetStandard(WIFI_PHY_STANDARD_80211a);
+  wifi.SetRemoteStationManager("ns3::ConstantRateWifiManager", "DataMode",
+                               StringValue("OfdmRate24Mbps"));
+
+  YansWifiChannelHelper wifiChannel; // = YansWifiChannelHelper::Default ();
+  wifiChannel.SetPropagationDelay("ns3::ConstantSpeedPropagationDelayModel");
+  wifiChannel.AddPropagationLoss("ns3::ThreeLogDistancePropagationLossModel");
+  wifiChannel.AddPropagationLoss("ns3::NakagamiPropagationLossModel");
+
+  YansWifiPhyHelper wifiPhyHelper = YansWifiPhyHelper::Default();
+  wifiPhyHelper.SetChannel(wifiChannel.Create());
+  wifiPhyHelper.Set("TxPowerStart", DoubleValue(5));
+  wifiPhyHelper.Set("TxPowerEnd", DoubleValue(5));
+
+  WifiMacHelper wifiMacHelper;
+  wifiMacHelper.SetType("ns3::AdhocWifiMac");
+
+  Ptr<UniformRandomVariable> randomizer = CreateObject<UniformRandomVariable>();
+  randomizer->SetAttribute("Min", DoubleValue(10));
+  randomizer->SetAttribute("Max", DoubleValue(100));
+
+  MobilityHelper mobility;
+  mobility.SetPositionAllocator("ns3::RandomBoxPositionAllocator", "X", PointerValue(randomizer),
+                                "Y", PointerValue(randomizer), "Z", PointerValue(randomizer));
+
+  mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
   NodeContainer nodes;
-  nodes.Create(3);
+  nodes.Create(2);
+  ////////////////
+  // 1. Install Wifi
+  NetDeviceContainer wifiNetDevices = wifi.Install(wifiPhyHelper, wifiMacHelper, nodes);
 
-  // Connecting nodes using two links
-  PointToPointHelper p2p;
-  p2p.Install(nodes.Get(0), nodes.Get(1));
-  p2p.Install(nodes.Get(1), nodes.Get(2));
+  // 2. Install Mobility model
+  mobility.Install(nodes);
 
-  // Install NDN stack on all nodes
+  // 3. Install NDN stack
   ndn::StackHelper ndnHelper;
+  // ndnHelper.AddNetDeviceFaceCreateCallback (WifiNetDevice::GetTypeId (), MakeCallback
+  // (MyNetDeviceFaceCallback));
+  ndnHelper.SetOldContentStore("ns3::ndn::cs::Lru", "MaxSize", "1000");
   ndnHelper.SetDefaultRoutes(true);
-  ndnHelper.InstallAll();
+  ndnHelper.Install(nodes);
 
-  // Choosing forwarding strategy
-  ndn::StrategyChoiceHelper::InstallAll("/prefix", "/localhost/nfd/strategy/multicast");
+  // Set BestRoute strategy
+  ndn::StrategyChoiceHelper::Install(nodes, "/", "/localhost/nfd/strategy/best-route");
+
 
   // Installing applications
 
@@ -181,7 +222,7 @@ main(int argc, char* argv[])
   // Consumer
   //ndn::AppHelper consumerHelper("ns3::ndn::Consumer");
   ndn::AppHelper lightSensorHelper("LightSensorApp");
-  lightSensorHelper.Install(nodes.Get(2));
+  lightSensorHelper.Install(nodes.Get(1));
   ndn::AppHelper controllerHelper("ControllerApp");
   controllerHelper.Install(nodes.Get(0));
   
@@ -192,7 +233,7 @@ main(int argc, char* argv[])
   consumerHelper.SetAttribute("Frequency", StringValue("0.1")); // 10 interests a second
   consumerHelper.Install(nodes.Get(0));                        // first node*/
 
-  // Producer
+  // Producerk
  // ndn::AppHelper producerHelper("ns3::ndn::Producer");
   // Producer will reply to all requests starting with /prefix
   //producerHelper.SetPrefix("/prefix");
