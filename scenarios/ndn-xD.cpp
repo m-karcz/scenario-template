@@ -66,7 +66,7 @@ struct ParametrizedApp : ndn::App
         ndn::FibHelper::AddRoute(GetNode(), m_ownPrefix, m_face, 0);
     }
 
-    virtual void SendInterestImpl(const std::string& p_prefix ndn::time::milliseconds p_time = ndn::time::seconds(1))
+    virtual void SendInterestImpl(const std::string& p_prefix, ndn::time::milliseconds p_time = ndn::time::seconds(1))
     {
         std::string interest_ctor_arg = p_prefix;
         std::cout << "sent interest " << interest_ctor_arg << std::endl;
@@ -118,7 +118,7 @@ struct ControllerApp : ParametrizedApp
     {
         for(const auto& p_prefixToSend : m_interestedPrefixes)
         {
-            SendInterestImpl(p_prefixToSend, 0);
+            SendInterestImpl(p_prefixToSend);
         }
         Simulator::Schedule(Seconds(1.0), &ControllerApp::SendInterests, this);
     }
