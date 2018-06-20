@@ -54,53 +54,97 @@ namespace ns3 {
  *     NS_LOG=ndn.Consumer:ndn.Producer ./waf --run=ndn-simple
  */
 
-using Parent = ndn::ConsumerCbr;
-
-struct YoloConsumer : Parent
+struct ParametrizedApp : ndn::App
 {
+    ParametrizedApp(std::string p_ownPrefix, std::vector<std::string> p_interestedPrefixes = {})
+        : m_ownPrefix(std::move(p_ownPrefix)),
+          m_interestedPrefixes(std::move(p_interestedPrefixes))
+    {}
+    void StartApplication() override
+    {
+        ndn::App::StartApplication();
+        ndn::FibHelper::AddRoute(GetNode(), m_ownPrefix, m_face, 0);
+    }
+
+    virtual void SendInterestImpl(const std::string& p_prefix ndn::time::milliseconds p_time = ndn::time::seconds(1))
+    {
+        std::string interest_ctor_arg = p_prefix;
+        std::cout << "sent interest " << interest_ctor_arg << std::endl;
+        auto interest = std::make_shared<ndn::Interest>(interest_ctor_arg);
+        interest->setInterestLifetime(p_time);
+        m_transmittedInterests(interest, this, m_face);
+        m_appLink->onReceiveInterest(*interest);
+    }
+    void OnInterest(std::shared_ptr<const ndn::Interest> p_interest) override
+    {
+        ndn::App::OnInterest(p_interest);
+        std::cout << "on interest" << std::endl;
+    }
+    void OnData(std::shared_ptr<const ndn::Data> p_data) override
+    {
+        ndn::App::OnData(p_data);
+        std::cout << "on data" << std::endl;
+    }
+protected:
+    int m_counter = 0;
+    std::string m_ownPrefix;
+    std::vector<std::string> m_interestedPrefixes;
+};
+
+struct ControllerApp : ParametrizedApp
+{
+    ControllerApp() : ParametrizedApp("/controller",{
+                        "/lightsensor",
+                        "/motionsensor/0",
+                        "/moionnsensor/1"
+                      })
+    {
+    }
 
     static TypeId GetTypeId()
     {
-        static TypeId tid =
-            TypeId("YoloConsumer")
-                .SetParent<Parent>()
-                .AddConstructor<YoloConsumer>();
-
+        static TypeId tid = 
+            TypeId("ControllerApp")
+                .SetParent<ParametrizedApp>()
+                .AddConstructor<ControllerApp>();
         return tid;
-    }
-    YoloConsumer()
-    {
-        std::cout << "created" << std::endl;
     }
     void StartApplication() override
     {
-        Parent::StartApplication();
-        std::cout << "start" << std::endl;
+        ParametrizedApp::StartApplication();
+        Simulator::Schedule(Seconds(1.0), &ControllerApp::SendInterests, this);
     }
-    void StopApplication() override
+    void SendInterests()
     {
-        Parent::StopApplication();
-        std::cout << "stop" << std::endl;
-    }
-    void OnData(std::shared_ptr<const ::ndn::Data> p_data) override
-    {
-        //std::cout << "OnData: " << *content << std::endl;
-        //jjbx, pewnie nie tak, ale przynajmiej widać co przyszło
-        //const std::vector<uint8_t>& l_buffer = p_data->getContent().getBuffer();
-        /*std::shared_ptr<const std::vector<uint8_t>> l_buffer = p_data->getContent().getBuffer();
-        std::cout << "Received: ";
-        for(const uint8_t& l_char : *l_buffer)
+        for(const auto& p_prefixToSend : m_interestedPrefixes)
         {
-            std::cout << (int)l_char << " ";
-        }*/
-        Parent::OnData(p_data);
-        std::cout << "TO JEST TAKI ŚMIEĆ" << std::endl;
-        
-        //std::cout << "xD" << std::endl;
+            SendInterestImpl(p_prefixToSend, 0);
+        }
+        Simulator::Schedule(Seconds(1.0), &ControllerApp::SendInterests, this);
     }
 };
 
-NS_OBJECT_ENSURE_REGISTERED(YoloConsumer);
+struct LightSensorApp : ParametrizedApp //jakoś się uogulni sensor
+{
+    LightSensorApp() : ParametrizedApp("/lightsensor")
+    {}
+    static TypeId GetTypeId()
+    {
+        static TypeId tid =
+            TypeId("LightSensorApp")
+                .SetParent<ndn::App>()
+                .AddConstructor<LightSensorApp>();
+        return tid;
+    }
+    void OnInterest(std::shared_ptr<const ndn::Interest> p_interest) override
+    {
+        ndn::App::OnInterest(p_interest);
+        std::cout << "got interest in light sensor xD" << std::endl;
+    }
+};
+
+NS_OBJECT_ENSURE_REGISTERED(LightSensorApp);
+NS_OBJECT_ENSURE_REGISTERED(ControllerApp);
 
 int
 main(int argc, char* argv[])
@@ -136,18 +180,24 @@ main(int argc, char* argv[])
   std::cout << "cout działa xD" << std::endl;
   // Consumer
   //ndn::AppHelper consumerHelper("ns3::ndn::Consumer");
-  ndn::AppHelper consumerHelper("YoloConsumer");
+  ndn::AppHelper lightSensorHelper("LightSensorApp");
+  lightSensorHelper.Install(nodes.Get(2));
+  ndn::AppHelper controllerHelper("ControllerApp");
+  controllerHelper.Install(nodes.Get(0));
+  
+  //ndn::AppHelper consumerHelper("YoloConsumer");
+  //ndn::AppHelper consumerHelper("YoloConsumer");
   // Consumer will request /prefix/0, /prefix/1, ...
-  consumerHelper.SetPrefix("/prefix");
-  consumerHelper.SetAttribute("Frequency", StringValue("10")); // 10 interests a second
-  consumerHelper.Install(nodes.Get(0));                        // first node
+  /*consumerHelper.SetPrefix("/prefix/sub");
+  consumerHelper.SetAttribute("Frequency", StringValue("0.1")); // 10 interests a second
+  consumerHelper.Install(nodes.Get(0));                        // first node*/
 
   // Producer
-  ndn::AppHelper producerHelper("ns3::ndn::Producer");
+ // ndn::AppHelper producerHelper("ns3::ndn::Producer");
   // Producer will reply to all requests starting with /prefix
-  producerHelper.SetPrefix("/prefix");
-  producerHelper.SetAttribute("PayloadSize", StringValue("1024"));
-  producerHelper.Install(nodes.Get(2)); // last node
+  //producerHelper.SetPrefix("/prefix");
+  //producerHelper.SetAttribute("PayloadSize", StringValue("16"));
+ // producerHelper.Install(nodes.Get(2)); // last node
 
   Simulator::Stop(Seconds(20.0));
 
