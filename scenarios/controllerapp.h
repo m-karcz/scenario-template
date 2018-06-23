@@ -9,8 +9,8 @@ namespace ns3 {
 
 struct ControllerApp : ParametrizedApp
 {
-    ControllerApp() : ParametrizedApp("/home")
-    {}
+/*    ControllerApp() : ParametrizedApp("/home")
+    {}*/
 
     static TypeId GetTypeId()
     {

@@ -9,9 +9,6 @@ namespace ns3 {
 
 struct LightNodeApp : ParametrizedApp
 {
-    LightNodeApp() : ParametrizedApp("/home/lightnode")
-    {}
-
     static TypeId GetTypeId()
     {
         static TypeId tid =

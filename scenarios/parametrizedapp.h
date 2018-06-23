@@ -1,12 +1,15 @@
 #ifndef PARAMETRIZEDAPP_H
 #define PARAMETRIZEDAPP_H
 
+#include "ns3/string.h"
+#include "ns3/integer.h"
+
 namespace ns3 {
 
 struct ParametrizedApp : ndn::App
 {
-    ParametrizedApp(std::string p_ownPrefix, std::vector<std::string> p_interestedPrefixes = {})
-        : m_ownPrefix(std::move(p_ownPrefix)),
+    
+    ParametrizedApp(std::vector<std::string> p_interestedPrefixes = {}) :
           m_interestedPrefixes(std::move(p_interestedPrefixes))
     {}
     void StartApplication() override
@@ -18,13 +21,13 @@ struct ParametrizedApp : ndn::App
     virtual void SendInterestImpl(const std::string& p_prefix, ndn::time::milliseconds p_time = ndn::time::seconds(1))
     {
         std::string interest_ctor_arg = p_prefix;
-//        std::cout << "sent interest " << interest_ctor_arg << std::endl;
+        std::cout << "sent interest " << interest_ctor_arg << std::endl;
         auto interest = std::make_shared<ndn::Interest>(interest_ctor_arg);
         interest->setInterestLifetime(p_time);
         m_transmittedInterests(interest, this, m_face);
         m_appLink->onReceiveInterest(*interest);
     }
-    void OnInterest(std::shared_ptr<const ndn::Interest> p_interest) override
+    /*void OnInterest(std::shared_ptr<const ndn::Interest> p_interest) override
     {
         ndn::App::OnInterest(p_interest);
 //        std::cout << "on interest" << std::endl;
@@ -33,6 +36,15 @@ struct ParametrizedApp : ndn::App
     {
         ndn::App::OnData(p_data);
 //        std::cout << "on data" << std::endl;
+    }*/
+    static TypeId GetTypeId()
+    {
+        static TypeId tid =
+            TypeId("ParametrizedApp")
+            .SetParent<ndn::App>()
+            .AddAttribute("Prefix", "Prefix", StringValue("/"),
+                          MakeStringAccessor(&ParametrizedApp::m_ownPrefix), MakeStringChecker());
+        return tid;
     }
 protected:
     int m_counter = 0;

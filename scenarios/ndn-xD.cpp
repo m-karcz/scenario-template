@@ -36,16 +36,14 @@
 
 #include "parametrizedapp.h"
 #include "controllerapp.h"
-#include "lightsensorapp.h"
-#include "occupationsensorapp.h"
 #include "lightnodeapp.h"
+#include "sensorapp.h"
 
 namespace ns3 {
 
-NS_OBJECT_ENSURE_REGISTERED(LightSensorApp);
-NS_OBJECT_ENSURE_REGISTERED(OccupationSensorApp);
 NS_OBJECT_ENSURE_REGISTERED(ControllerApp);
 NS_OBJECT_ENSURE_REGISTERED(LightNodeApp);
+NS_OBJECT_ENSURE_REGISTERED(SensorApp);
 
 int
 main(int argc, char* argv[])
@@ -94,7 +92,7 @@ main(int argc, char* argv[])
 
   mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
   NodeContainer nodes;
-  nodes.Create(4);
+  nodes.Create(1);
   ////////////////
   // 1. Install Wifi
   NetDeviceContainer wifiNetDevices = wifi.Install(wifiPhyHelper, wifiMacHelper, nodes);
@@ -116,12 +114,28 @@ main(int argc, char* argv[])
 
   // Installing applications
   ndn::AppHelper lightNodeHelper("LightNodeApp");
+  lightNodeHelper.SetPrefix("/home/lightnode");
   lightNodeHelper.Install(nodes);
-  ndn::AppHelper occupationSensorHelper("OccupationSensorApp");
+  ndn::AppHelper occupationSensorHelper("SensorApp");
+  occupationSensorHelper.SetPrefix("/occupationSensor");
+  occupationSensorHelper.SetAttribute(
+        "DataPrefix",
+        StringValue("/home/occupation/publish/occupation-sensor-lvl0"));
+  occupationSensorHelper.SetAttribute(
+        "DataFile",
+        StringValue("scenarios/occupation_data.txt"));
   occupationSensorHelper.Install(nodes);
-  ndn::AppHelper lightSensorHelper("LightSensorApp");
+  ndn::AppHelper lightSensorHelper("SensorApp");
+  lightSensorHelper.SetPrefix("/lightsensor");
+  lightSensorHelper.SetAttribute(
+        "DataPrefix",
+        StringValue("/home/luminocity/publish/light-sensor-0x01"));
+  lightSensorHelper.SetAttribute(
+        "DataFile",
+        StringValue("scenarios/light_data.txt"));
   lightSensorHelper.Install(nodes);
   ndn::AppHelper controllerHelper("ControllerApp");
+  controllerHelper.SetPrefix("/home");
   controllerHelper.Install(nodes);
 
   Simulator::Stop(Seconds(20.0));
