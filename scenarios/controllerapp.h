@@ -2,7 +2,6 @@
 #define CONTROLLERAPP_H
 
 #include <iostream>
-#include <regex>
 #include "parametrizedapp.h"
 #include "utils.h"
 
@@ -36,42 +35,53 @@ struct ControllerApp : ParametrizedApp
             return;
         }
 
-        if (interestParts.at(InterestPart::INTEREST_NAME) == lightSensorInterestName)
+        if (interestParts.at(Utils::InterestPart::INTEREST_NAME) == lightSensorInterestName)
         {
             std::cout << "Light data from "
-                      << interestParts.at(InterestPart::DEVICE_NAME)
+                      << interestParts.at(Utils::InterestPart::DEVICE_NAME)
                       << " : "
-                      << interestParts.at(InterestPart::INTEREST_VALUE)
+                      << interestParts.at(Utils::InterestPart::INTEREST_VALUE)
                       << std::endl;
-            lightValue = std::stod(interestParts.at(InterestPart::INTEREST_VALUE));
+            lightValue = std::stod(interestParts.at(Utils::InterestPart::INTEREST_VALUE));
         }
-        else if (interestParts.at(InterestPart::INTEREST_NAME) == occupantionSensorInterestName)
+        else if (interestParts.at(Utils::InterestPart::INTEREST_NAME) == occupantionSensorInterestName)
         {
             std::cout << "Occupation data from "
-                      << interestParts.at(InterestPart::DEVICE_NAME)
+                      << interestParts.at(Utils::InterestPart::DEVICE_NAME)
                       << " : "
-                      << interestParts.at(InterestPart::INTEREST_VALUE)
+                      << interestParts.at(Utils::InterestPart::INTEREST_VALUE)
                       << std::endl;
-            peopleInside += std::stod(interestParts.at(InterestPart::INTEREST_VALUE));
+            peopleInside += std::stoi(interestParts.at(Utils::InterestPart::INTEREST_VALUE));
+        }
+
+        if (interestParts.at(Utils::InterestPart::DEVICE_NAME) != "controller")
+        {
+            evalLightBulbControl();
+            SendLightBulb();
         }
 
         ndn::App::OnInterest(p_interest);
     }
 
+    void evalLightBulbControl()
+    {
+        lightBulbControl = (lightValue < 0.7 && peopleInside > 0);
+    }
+
+    void SendLightBulb()
+    {
+        std::string prefix("/home/lightnode/set/controller/");
+        prefix.append(std::to_string(lightBulbControl ? 1 : 0));
+        SendInterestImpl(prefix);
+    }
+
 private:
     double lightValue = 0.0;
     int peopleInside = 0;
+    bool lightBulbControl = false;
     const char* lightSensorInterestName = "luminocity";
     const char* occupantionSensorInterestName = "occupation";
 
-    enum InterestPart
-    {
-        SYSTEM_NAME = 0,
-        INTEREST_NAME,
-        INTEREST_TYPE,
-        DEVICE_NAME,
-        INTEREST_VALUE
-    };
 };
 
 }

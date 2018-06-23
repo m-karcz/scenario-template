@@ -6,6 +6,15 @@
 
 namespace Utils {
 
+enum InterestPart
+{
+    SYSTEM_NAME = 0,
+    INTEREST_NAME,
+    INTEREST_TYPE,
+    DEVICE_NAME,
+    INTEREST_VALUE
+};
+
 std::vector<std::string> split(const std::string& s, char seperator)
 {
     std::vector<std::string> output;

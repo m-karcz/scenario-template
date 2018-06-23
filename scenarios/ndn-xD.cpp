@@ -38,12 +38,14 @@
 #include "controllerapp.h"
 #include "lightsensorapp.h"
 #include "occupationsensorapp.h"
+#include "lightnodeapp.h"
 
 namespace ns3 {
 
 NS_OBJECT_ENSURE_REGISTERED(LightSensorApp);
 NS_OBJECT_ENSURE_REGISTERED(OccupationSensorApp);
 NS_OBJECT_ENSURE_REGISTERED(ControllerApp);
+NS_OBJECT_ENSURE_REGISTERED(LightNodeApp);
 
 int
 main(int argc, char* argv[])
@@ -92,7 +94,7 @@ main(int argc, char* argv[])
 
   mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
   NodeContainer nodes;
-  nodes.Create(3);
+  nodes.Create(4);
   ////////////////
   // 1. Install Wifi
   NetDeviceContainer wifiNetDevices = wifi.Install(wifiPhyHelper, wifiMacHelper, nodes);
@@ -113,12 +115,14 @@ main(int argc, char* argv[])
 
 
   // Installing applications
+  ndn::AppHelper lightNodeHelper("LightNodeApp");
+  lightNodeHelper.Install(nodes);
   ndn::AppHelper occupationSensorHelper("OccupationSensorApp");
-  occupationSensorHelper.Install(nodes.Get(2));
+  occupationSensorHelper.Install(nodes);
   ndn::AppHelper lightSensorHelper("LightSensorApp");
-  lightSensorHelper.Install(nodes.Get(1));
+  lightSensorHelper.Install(nodes);
   ndn::AppHelper controllerHelper("ControllerApp");
-  controllerHelper.Install(nodes.Get(0));
+  controllerHelper.Install(nodes);
 
   Simulator::Stop(Seconds(20.0));
   Simulator::Run();
