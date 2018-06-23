@@ -8,7 +8,7 @@
 
 namespace ns3 {
 
-struct LightSensorApp : ParametrizedApp //jakoś się uogulni sensor
+struct LightSensorApp : ParametrizedApp
 {
     LightSensorApp() : ParametrizedApp("/lightsensor",
                         {"/home/luminocity/publish/light-sensor-0x01"})
