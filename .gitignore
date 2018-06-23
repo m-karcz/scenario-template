@@ -4,3 +4,6 @@
 .lock*
 build/
 *.pyc
+*.creator
+*.files
+*.config
