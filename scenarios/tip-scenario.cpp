@@ -12,6 +12,10 @@
 #include "ns3/application.h"
 #include <iostream>
 #include <vector>
+//#include "ns3/pyviz.h"
+#include "ns3/visualizer-module.h"
+
+
 
 #include "parametrizedapp.h"
 #include "controllerapp.h"
@@ -21,12 +25,27 @@
 namespace ns3 {
 
 NS_OBJECT_ENSURE_REGISTERED(ControllerApp);
+
 NS_OBJECT_ENSURE_REGISTERED(LightNodeApp);
 NS_OBJECT_ENSURE_REGISTERED(SensorApp);
+
+enum NodeIndex
+{
+    NodeStationIndex = 0,
+    NodeLightSensorIndex = 1,
+    NodeControllerIndex = 2,
+    NodeLightNodeIndex = 3,
+    NodeOccupationSensorIndex = 4
+};
 
 int
 main(int argc, char* argv[])
 {
+
+  CommandLine cmd;
+  cmd.Parse(argc, argv);
+
+    //ns3::PyViz pv;
   // setting default parameters for PointToPoint links and channels
   Config::SetDefault("ns3::PointToPointNetDevice::DataRate", StringValue("1Mbps"));
   Config::SetDefault("ns3::PointToPointChannel::Delay", StringValue("10ms"));
@@ -38,15 +57,15 @@ main(int argc, char* argv[])
                      StringValue("OfdmRate24Mbps"));
 
   // Read optional command-line parameters (e.g., enable visualizer with ./waf --run=<> --visualize
-  CommandLine cmd;
-  cmd.Parse(argc, argv);
 
   // Creating nodes
   //
   WifiHelper wifi;
+  wifi.EnableLogComponents();
   wifi.SetStandard(WIFI_PHY_STANDARD_80211a);
   wifi.SetRemoteStationManager("ns3::ConstantRateWifiManager", "DataMode",
                                StringValue("OfdmRate24Mbps"));
+
 
   YansWifiChannelHelper wifiChannel; // = YansWifiChannelHelper::Default ();
   wifiChannel.SetPropagationDelay("ns3::ConstantSpeedPropagationDelayModel");
@@ -58,8 +77,10 @@ main(int argc, char* argv[])
   wifiPhyHelper.Set("TxPowerStart", DoubleValue(5));
   wifiPhyHelper.Set("TxPowerEnd", DoubleValue(5));
 
+  Ssid ssid = Ssid ("wifi-default");
+
   WifiMacHelper wifiMacHelper;
-  wifiMacHelper.SetType("ns3::AdhocWifiMac");
+  wifiMacHelper.SetType("ns3::ApWifiMac", "Ssid", SsidValue(ssid));
 
   Ptr<UniformRandomVariable> randomizer = CreateObject<UniformRandomVariable>();
   randomizer->SetAttribute("Min", DoubleValue(10));
@@ -71,10 +92,27 @@ main(int argc, char* argv[])
 
   mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
   NodeContainer nodes;
-  nodes.Create(1);
+  nodes.Create(5);
   ////////////////
   // 1. Install Wifi
-  NetDeviceContainer wifiNetDevices = wifi.Install(wifiPhyHelper, wifiMacHelper, nodes);
+  NetDeviceContainer wifiNetDevices = wifi.Install(wifiPhyHelper, wifiMacHelper, nodes.Get(NodeStationIndex));
+
+  WifiMacHelper wifiMacHelperLightSensor;
+  wifiMacHelperLightSensor.SetType("ns3::StaWifiMac", "Ssid", SsidValue(ssid));
+  NetDeviceContainer wifiNetDeviceLightSensor = wifi.Install(wifiPhyHelper, wifiMacHelperLightSensor, nodes.Get(NodeLightSensorIndex));
+
+  WifiMacHelper wifiMacHelperController;
+  wifiMacHelperController.SetType("ns3::StaWifiMac", "Ssid", SsidValue(ssid));
+  NetDeviceContainer wifiNetDeviceController = wifi.Install(wifiPhyHelper, wifiMacHelperController, nodes.Get(NodeControllerIndex));
+
+  WifiMacHelper wifiMacHelperLightNode;
+  wifiMacHelperLightNode.SetType("ns3::StaWifiMac", "Ssid", SsidValue(ssid));
+  NetDeviceContainer wifiNetDeviceLightNode = wifi.Install(wifiPhyHelper, wifiMacHelperLightNode, nodes.Get(NodeLightNodeIndex));
+
+  WifiMacHelper wifiMacHelperOccupationSensor;
+  wifiMacHelperOccupationSensor.SetType("ns3::StaWifiMac", "Ssid", SsidValue(ssid));
+  NetDeviceContainer wifiNetDeviceOccupationSensor = wifi.Install(wifiPhyHelper, wifiMacHelperOccupationSensor, nodes.Get(NodeOccupationSensorIndex));
+
 
   // 2. Install Mobility model
   mobility.Install(nodes);
@@ -94,7 +132,7 @@ main(int argc, char* argv[])
   // Installing applications
   ndn::AppHelper lightNodeHelper("LightNodeApp");
   lightNodeHelper.SetPrefix("/home/lightnode");
-  lightNodeHelper.Install(nodes);
+  lightNodeHelper.Install(nodes.Get(NodeLightNodeIndex));
   ndn::AppHelper occupationSensorHelper("SensorApp");
   occupationSensorHelper.SetPrefix("/occupationSensor");
   occupationSensorHelper.SetAttribute(
@@ -103,7 +141,7 @@ main(int argc, char* argv[])
   occupationSensorHelper.SetAttribute(
         "DataFile",
         StringValue("scenarios/occupation_data.txt"));
-  occupationSensorHelper.Install(nodes);
+  occupationSensorHelper.Install(nodes.Get(NodeOccupationSensorIndex));
   ndn::AppHelper lightSensorHelper("SensorApp");
   lightSensorHelper.SetPrefix("/lightsensor");
   lightSensorHelper.SetAttribute(
@@ -112,10 +150,10 @@ main(int argc, char* argv[])
   lightSensorHelper.SetAttribute(
         "DataFile",
         StringValue("scenarios/light_data.txt"));
-  lightSensorHelper.Install(nodes);
+  lightSensorHelper.Install(nodes.Get(NodeLightSensorIndex));
   ndn::AppHelper controllerHelper("ControllerApp");
   controllerHelper.SetPrefix("/home");
-  controllerHelper.Install(nodes);
+  controllerHelper.Install(nodes.Get(NodeControllerIndex));
 
   Simulator::Stop(Seconds(20.0));
   Simulator::Run();
