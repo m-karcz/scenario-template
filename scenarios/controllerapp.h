@@ -70,6 +70,7 @@ struct ControllerApp : ParametrizedApp
 
     void SendLightBulb()
     {
+        m_log << lightValue << "\t" << (peopleInside > 0) << "\t" << lightBulbControl << std::endl;
         std::string prefix("/home/lightnode/set/controller/");
         prefix.append(std::to_string(lightBulbControl ? 1 : 0));
         SendInterestImpl(prefix);
@@ -79,6 +80,7 @@ private:
     double lightValue = 0.0;
     int peopleInside = 0;
     bool lightBulbControl = false;
+    std::ofstream m_log{"log.txt"};
     const char* lightSensorInterestName = "luminocity";
     const char* occupantionSensorInterestName = "occupation";
 
